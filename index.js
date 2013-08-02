@@ -117,7 +117,7 @@ function thread(d){
 		var message = d[i]
 		message.subject = window.atob(message.subject)
 		message.cSubject = canonicalize(message.subject)
-		message.from = window.atob(message.from)
+		message.from = window.atob(message.from).replace('MIT.EDU', 'mit.edu')
 		message.date = new Date(message.date).getTime()
 		
 		if(message.cSubject in map){

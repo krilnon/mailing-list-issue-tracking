@@ -1,7 +1,8 @@
 var 
 	data,
+	stats,
 	lists = {
-		'tech': [
+		'ashdown-tech': [
 			'Zhandos Y. Orazalin <orazalin@mit.edu>',
 			'Kyle Ian Murray <kimurray@mit.edu>',
 			'Ming Liu <mingliu@mit.edu>',
@@ -39,6 +40,9 @@ function onJSON(str){
 	data = eval('[' + str + ']') // intentionally using eval to deal with trailing commas.  JSON standard is silly.
 	data = thread(data)
 	$('body').append(render(data))
+	
+	stats = calculateStats(data)
+	$('#stats').append(renderStats(stats))
 }
 
 function onJSONError(err){
@@ -84,7 +88,7 @@ function listMembership(nameEmail){
 }
 
 function isTech(nameEmail){
-	return listMembership(nameEmail == 'ashdown-tech')
+	return listMembership(nameEmail) == 'ashdown-tech'
 }
 
 function nameCanon(nameEmail){
@@ -158,6 +162,24 @@ function thread(d){
 	}
 	
 	return threads.reverse()
+}
+
+function calculateStats(threads){
+	var stats = {}
+	
+	var people = stats.people = {}
+	
+	for(var i = 0; i < threads.length; i++){
+		var thread = threads[i]
+		for(var j = 0; j < thread.length; j++){
+			var message = thread[j]
+			
+			var person = people[message.from] = people[message.from] || new Person(message.from)
+			person.messages.push(message)
+		}
+	}
+	
+	return stats
 }
 
 function render(threads){
@@ -265,7 +287,7 @@ function renderDuration(message, $message){
 }
 
 function renderMessage(message, options){
-	options = options || options
+	options = options || {}
 	
 	var text = ''
 	
@@ -291,4 +313,102 @@ function renderMessage(message, options){
 	$message.append($('<span />', { text: text }))
 	
 	return $message
+}
+
+function renderStats(stats){
+	var $people = $('<ul />', { class: 'people' })
+	$('#stats').append($people)
+	
+	for(var name in stats.people){
+		console.log(name)
+		if(!isTech(name)) continue
+		var person = stats.people[name]
+		var $person = $('<div />', { 
+			class: 'person',
+			text: name
+		})
+		
+		var properties = {
+			'Number of responses': person.numResponses(),
+			'Average response time': moment.duration(person.averageResponse()).humanize(),
+			'Fastest response': moment.duration(person.fastestResponse()).humanize(),
+			'Most patient response': moment.duration(person.slowestResponse()).humanize()
+		}
+		
+		var $properties = $('<ul />')
+		for(var prop in properties){
+			var $prop = $('<li />', {
+				class: 'property'
+			})
+			
+			$prop.append($('<span />', {
+				class: 'prop-name',
+				text: prop + ': '
+			}))
+			
+			$prop.append($('<span />', {
+				class: 'prop-val',
+				text: properties[prop]
+			}))
+			
+			$properties.append($prop)
+		}
+		
+		$person.append($properties)
+		$people.append($('<li />').append($person))
+	}
+}
+
+function Person(name){
+	this.messages = []
+	this.name = name
+	
+}
+
+Person.prototype.fastestResponse = function(){
+	var fastest = Infinity
+	for(var i = 0; i < this.messages.length; i++){
+		var message = this.messages[i]
+		if(!message.duration) continue
+		
+		if(message.duration < fastest) fastest = message.duration
+	}
+	
+	return fastest
+}
+
+Person.prototype.slowestResponse = function(){
+	var slowest = -Infinity
+	for(var i = 0; i < this.messages.length; i++){
+		var message = this.messages[i]
+		if(!message.duration || message.duration == Infinity) continue
+		
+		if(message.duration > slowest) slowest = message.duration
+	}
+	
+	return slowest
+}
+
+Person.prototype.averageResponse = function(){
+	var acc = 0
+	var count = 0
+	for(var i = 0; i < this.messages.length; i++){
+		var message = this.messages[i]
+		if(!message.duration || message.duration == Infinity || message.duration == -Infinity) continue
+		
+		acc += message.duration
+		count++
+	}
+	
+	return acc / count
+}
+
+Person.prototype.numResponses = function(){
+	var count = 0
+	for(var i = 0; i < this.messages.length; i++){
+		var message = this.messages[i]
+		if(!message.first) count++
+	}
+	
+	return count
 }
